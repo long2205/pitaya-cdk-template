@@ -12,7 +12,7 @@ const app = new App();
 const deployEnv = app.node.tryGetContext("deployEnv");
 if (deployEnv == undefined)
   throw new Error(`Please specify environment with context option. ex) cdk deploy -c deployEnv=dev`);
-if (deployEnv !== "dev" && deployEnv !== "stg" && deployEnv !== "prod") 
+if (deployEnv !== "dev" && deployEnv !== "stg" && deployEnv !== "prod")
   throw new Error('Invalid environment. Only accept dev, stg or prod');
 
 // Get config from .env.${deployEnv} files
@@ -29,7 +29,7 @@ const config = resolveConfig(deployEnv);
  * VPC properties could be changed, but not the VPC itself,
  * VPC itself should not be delete and should be available till the end of project life cycle.
  * Should be things that's free
- *  */ 
+ *  */
 const baseNetworkStack = new BaseNetworkStack(app, 'BaseNetwork', {
   stackName: `${deployEnv}-BaseNetwork`,
   env: env,
@@ -42,7 +42,7 @@ const baseNetworkStack = new BaseNetworkStack(app, 'BaseNetwork', {
  * Stateful stack should be things that will retain data.
  * Most of the time should just be AWS RDS databases.
  * Delete protection should be on for production and off otherwise.
- *  */ 
+ *  */
 const statefulResourceStack = new StatefulResourceStack(app, 'StatefulResource', {
   stackName: `${deployEnv}-StatefulResource`,
   env: env,
@@ -60,7 +60,7 @@ statefulResourceStack.addDependency(baseNetworkStack);
  * This stack should included everything else other than VPC and stateful resources.
  * Load Balancer, EC2, ECS, Lambda, Code Pipeline, etc..
  * If you have too many lambda functions, you can write in into a difference file.
- *  */ 
+ *  */
 const statelessResourceStack = new StatelessResourceStack(app, 'StatelessResource', {
   stackName: `${deployEnv}-StatelessResource`,
   env: env,

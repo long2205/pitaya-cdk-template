@@ -45,8 +45,8 @@ export class StatelessResourceStack extends Stack {
      * Log bucket (in early stage of development, maybe it's best to set DESTROY RemovalPolicy)
      */
     const loggingBucket = new s3.Bucket(this, "loggingBucket", {
-      bucketName: `${commonConstants.project}-logging-bucket`}
-    );
+      bucketName: `${commonConstants.project}-logging-bucket`
+    });
     loggingBucket.applyRemovalPolicy(RemovalPolicy.DESTROY);
 
     /**
@@ -67,7 +67,7 @@ export class StatelessResourceStack extends Stack {
     });
     lbSecurityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), "Allow inbound traffic on port 80");
     lbSecurityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), "Allow inbound traffic on port 443");
-    
+
     const loadBalancer = new lbv2.ApplicationLoadBalancer(this, `${deployEnv}-${commonConstants.project}-lb`, {
       loadBalancerName: `${deployEnv}-${commonConstants.project}-lb`,
       vpc: vpc,
@@ -100,7 +100,7 @@ export class StatelessResourceStack extends Stack {
      * Compute Resource (ECS)
      */
     //Image Repo
-    const apiECRRepo =  new ecr.Repository(this, `${deployEnv}-Api-ecrRepo`,{
+    const apiECRRepo = new ecr.Repository(this, `${deployEnv}-Api-ecrRepo`, {
       repositoryName: `Api-${deployEnv}`,
       removalPolicy: RemovalPolicy.DESTROY,
     });
@@ -113,7 +113,7 @@ export class StatelessResourceStack extends Stack {
 
     //Task Definition
     const taskDefApi = new ecs.FargateTaskDefinition(this, `${deployEnv}-Api-taskDef`);
-    const taskDefApiLogGroup = new logs.LogGroup(this, `${deployEnv}-Api-logGroup`, {logGroupName: `/${deployEnv}/ecs/Api`});
+    const taskDefApiLogGroup = new logs.LogGroup(this, `${deployEnv}-Api-logGroup`, { logGroupName: `/${deployEnv}/ecs/Api` });
     taskDefApi.addContainer("apiContainer", {
       image: ecs.ContainerImage.fromEcrRepository(apiECRRepo),
       portMappings: [
@@ -129,7 +129,7 @@ export class StatelessResourceStack extends Stack {
       },
       environment: {
       },
-      logging: ecs.LogDrivers.awsLogs({ streamPrefix: `${deployEnv}`,logGroup: taskDefApiLogGroup }),
+      logging: ecs.LogDrivers.awsLogs({ streamPrefix: `${deployEnv}`, logGroup: taskDefApiLogGroup }),
     });
     taskDefApi.addToTaskRolePolicy(new iam.PolicyStatement({
       actions: ["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
@@ -153,7 +153,7 @@ export class StatelessResourceStack extends Stack {
       minCapacity: 1,
       maxCapacity: 5,
     });
-    
+
     scalableTarget.scaleOnCpuUtilization('CpuScaling', {
       targetUtilizationPercent: 70,
     });
@@ -172,7 +172,7 @@ export class StatelessResourceStack extends Stack {
       }
     });
 
-    const apiGreenTg = new lbv2.ApplicationTargetGroup(this, `greenApiTarget${deployEnv}`,{
+    const apiGreenTg = new lbv2.ApplicationTargetGroup(this, `greenApiTarget${deployEnv}`, {
       vpc: vpc,
       port: 8888,
       protocol: lbv2.ApplicationProtocol.HTTP,
@@ -187,7 +187,7 @@ export class StatelessResourceStack extends Stack {
       target: route53.RecordTarget.fromAlias(new route53_targets.LoadBalancerTarget(loadBalancer)),
       recordName: `api.${hostZone.zoneName}`,
     });
-    
+
     /**
      * Deploy Pipeline
      */
@@ -259,7 +259,7 @@ export class StatelessResourceStack extends Stack {
         },
         artifacts: {
           files: [
-            "appspec.yaml", 
+            "appspec.yaml",
             "taskdef.json",
             "imageDetail.json"
           ]
@@ -321,12 +321,12 @@ export class StatelessResourceStack extends Stack {
     /**Lambda function */
     const exampleLambda = new lambda.Function(this, `${deployEnv}-${commonConstants.project}-exampleLambda`, {
       functionName: `example-lambda-${deployEnv}`,
-      code: lambda.Code.fromAsset(path.join(__dirname,"../assets")),
+      code: lambda.Code.fromAsset(path.join(__dirname, "../assets")),
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: `example-lambda-${deployEnv}.lambda_handler`,
       environment: {
         "env": deployEnv
       },
-  });
+    });
   }
 }
