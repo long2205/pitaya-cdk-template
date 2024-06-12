@@ -13,6 +13,7 @@ import {
   aws_s3 as s3,
   aws_certificatemanager as certificatemanager,
   aws_route53 as route53,
+  aws_route53_targets as route53_targets,
   aws_elasticloadbalancingv2 as lbv2,
   aws_ecr as ecr,
   aws_ecs as ecs,
@@ -32,13 +33,14 @@ import * as path from 'path';
 interface StatelessResourceProps extends StackProps {
   deployEnv: string;
   vpc: ec2.Vpc;
+  hostZone: route53.HostedZone;
   config: Readonly<StackConfig>;
 }
 
 export class StatelessResourceStack extends Stack {
   constructor(scope: Construct, id: string, props: StatelessResourceProps) {
     super(scope, id, props);
-    const { deployEnv, vpc, config } = props;
+    const { deployEnv, vpc, config, hostZone } = props;
     /**
      * Log bucket (in early stage of development, maybe it's best to set DESTROY RemovalPolicy)
      */
@@ -46,12 +48,8 @@ export class StatelessResourceStack extends Stack {
     loggingBucket.applyRemovalPolicy(RemovalPolicy.DESTROY);
 
     /**
-     * Route 53 and Certs
+     * Certs
      */
-    const hostZone = new route53.HostedZone(this, `${deployEnv}-${commonConstants.project}-hostZone`, {
-      zoneName: config.domainName
-    });
-
     const certificate = new certificatemanager.Certificate(this, `${deployEnv}-${commonConstants.project}-cert`, {
       domainName: config.domainName,
       subjectAlternativeNames: [`*.${config.domainName}`],
@@ -180,6 +178,12 @@ export class StatelessResourceStack extends Stack {
       healthCheck: {
         path: "/ping"
       },
+    });
+
+    new route53.ARecord(this, `api-record-${deployEnv}`, {
+      zone: hostZone,
+      target: route53.RecordTarget.fromAlias(new route53_targets.LoadBalancerTarget(loadBalancer)),
+      recordName: `api.${hostZone.zoneName}`,
     });
     
     /**

@@ -66,6 +66,7 @@ const statelessResourceStack = new StatelessResourceStack(app, 'StatelessResourc
   env: env,
   deployEnv: deployEnv,
   vpc: baseNetworkStack.vpc,
+  hostZone: baseNetworkStack.hostZone,
   config: config
 });
 statelessResourceStack.addDependency(baseNetworkStack);

@@ -9,6 +9,7 @@ import {
   Stack,
   StackProps,
   aws_ec2 as ec2,
+  aws_route53 as route53,
 } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { StackConfig } from './parameters/env-config';
@@ -22,6 +23,7 @@ interface BaseNetworkProps extends StackProps {
 
 export class BaseNetworkStack extends Stack {
   public readonly vpc: ec2.Vpc;
+  public readonly hostZone: route53.HostedZone;
   constructor(scope: Construct, id: string, props: BaseNetworkProps) {
     super(scope, id, props);
     const { deployEnv, config } = props;
@@ -48,6 +50,10 @@ export class BaseNetworkStack extends Stack {
       ],
       natGateways: 0,
       // natGatewayProvider: ec2.NatProvider.gateway({ eipAllocationIds: [eipAddress.attrAllocationId] }),
+    });
+
+    this.hostZone = new route53.HostedZone(this, `${deployEnv}-${commonConstants.project}-hostZone`, {
+      zoneName: config.domainName
     });
   }
 }
