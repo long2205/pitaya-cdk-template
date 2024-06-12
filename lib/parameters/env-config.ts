@@ -3,8 +3,9 @@ import * as path from 'path';
 
 //Define each parameters' type
 export interface StackConfig {
-    domainName: string;
-    cidrBlock: string;
+    domainName: string,
+    githubBranch: string,
+    cidrBlock: string,
 }
 
 //Get parameter from .env file, if value not exist, get default's value
@@ -14,6 +15,7 @@ export const resolveConfig = (deployEnv: string): StackConfig => {
 
     return {
         domainName: process.env.DOMAIN_NAME || '',
+        githubBranch: process.env.BRANCH || 'develop',
         cidrBlock: process.env.CIDR_BLOCK || '10.1.0.0/16'
     }
 };

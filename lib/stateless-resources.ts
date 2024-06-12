@@ -17,7 +17,11 @@ import {
   aws_ecr as ecr,
   aws_ecs as ecs,
   aws_logs as logs,
-  aws_iam as iam
+  aws_iam as iam,
+  aws_codepipeline as codepipeline,
+  aws_codepipeline_actions as codepipeline_actions,
+  aws_codebuild as codebuild,
+  aws_codedeploy as codedeploy,
 } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { StackConfig } from './parameters/env-config';
@@ -96,8 +100,8 @@ export class StatelessResourceStack extends Stack {
      * Compute Resource (ECS)
      */
     //Image Repo
-    const backendECRRepo =  new ecr.Repository(this, `${deployEnv}-backend-ecrRepo`,{
-      repositoryName: `backend-${deployEnv}`,
+    const apiECRRepo =  new ecr.Repository(this, `${deployEnv}-Api-ecrRepo`,{
+      repositoryName: `Api-${deployEnv}`,
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
@@ -108,13 +112,13 @@ export class StatelessResourceStack extends Stack {
     });
 
     //Task Definition
-    const taskDefBackend = new ecs.FargateTaskDefinition(this, `${deployEnv}-backend-taskDef`);
-    const taskDefBackendLogGroup = new logs.LogGroup(this, `${deployEnv}-backend-logGroup`, {logGroupName: `/${deployEnv}/ecs/backend`});
-    taskDefBackend.addContainer("apiContainer", {
-      image: ecs.ContainerImage.fromEcrRepository(backendECRRepo),
+    const taskDefApi = new ecs.FargateTaskDefinition(this, `${deployEnv}-Api-taskDef`);
+    const taskDefApiLogGroup = new logs.LogGroup(this, `${deployEnv}-Api-logGroup`, {logGroupName: `/${deployEnv}/ecs/Api`});
+    taskDefApi.addContainer("apiContainer", {
+      image: ecs.ContainerImage.fromEcrRepository(apiECRRepo),
       portMappings: [
         {
-          containerPort: 80,
+          containerPort: 8888,
         },
       ],
       secrets: {
@@ -125,27 +129,27 @@ export class StatelessResourceStack extends Stack {
       },
       environment: {
       },
-      logging: ecs.LogDrivers.awsLogs({ streamPrefix: `${deployEnv}`,logGroup: taskDefBackendLogGroup }),
+      logging: ecs.LogDrivers.awsLogs({ streamPrefix: `${deployEnv}`,logGroup: taskDefApiLogGroup }),
     });
-    taskDefBackend.addToTaskRolePolicy(new iam.PolicyStatement({
+    taskDefApi.addToTaskRolePolicy(new iam.PolicyStatement({
       actions: ["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
       resources: [`*`]
     }));
 
     //Service
-    const backendService = new ecs.FargateService(this, `${deployEnv}-backend-service`, {
+    const apiService = new ecs.FargateService(this, `${deployEnv}-Api-service`, {
       cluster: cluster,
-      taskDefinition: taskDefBackend,
-      serviceName: "backend-service",
+      taskDefinition: taskDefApi,
+      serviceName: "Api-service",
       deploymentController: {
         type: ecs.DeploymentControllerType.CODE_DEPLOY,
       },
-      desiredCount: 1,
-      assignPublicIp: true //if not set, task will be place in private subnet
+      desiredCount: 0,
+      assignPublicIp: true, //if not set, task will be place in private subnet
     });
 
     //Auto Scale (max to 5 task, scale when CPU Reach 70%)
-    const scalableTarget = backendService.autoScaleTaskCount({
+    const scalableTarget = apiService.autoScaleTaskCount({
       minCapacity: 1,
       maxCapacity: 5,
     });
@@ -153,10 +157,159 @@ export class StatelessResourceStack extends Stack {
     scalableTarget.scaleOnCpuUtilization('CpuScaling', {
       targetUtilizationPercent: 70,
     });
+
+    const apiBlueTg = httpsListener.addTargets(`blueApiTarget${deployEnv}`, {
+      priority: 1,
+      port: 8888,
+      protocol: lbv2.ApplicationProtocol.HTTP,
+      conditions: [
+        lbv2.ListenerCondition.hostHeaders([`api.${config.domainName}`]),
+        // cdk.aws_elasticloadbalancingv2.ListenerCondition.pathPatterns(["/api/*"]),
+      ],
+      targets: [apiService],
+      healthCheck: {
+        path: "/ping"
+      }
+    });
+
+    const apiGreenTg = new lbv2.ApplicationTargetGroup(this, `greenApiTarget${deployEnv}`,{
+      vpc: vpc,
+      port: 8888,
+      protocol: lbv2.ApplicationProtocol.HTTP,
+      targetType: lbv2.TargetType.IP,
+      healthCheck: {
+        path: "/ping"
+      },
+    });
     
     /**
      * Deploy Pipeline
      */
+    //Codebuild permission 
+    const codebuildRole = new iam.Role(this, "CodeBuildRole", {
+      assumedBy: new iam.ServicePrincipal("codebuild.amazonaws.com"),
+    });
+
+    codebuildRole.addToPolicy(new iam.PolicyStatement({
+      resources: ["*"],
+      actions: ["ecr:*", "ssm:GetParameters", "ecs:UpdateService", "ecs:DescribeTaskDefinition", "ecs:RegisterTaskDefinition", "ecs:TagResource"],
+    }));
+
+    codebuildRole.addToPolicy(new iam.PolicyStatement({
+      resources: ["*"],
+      actions: ["iam:PassRole"],
+    }));
+
+    //Source
+    const sourceOutputApi = new codepipeline.Artifact();
+    const sourceActionApi = new codepipeline_actions.CodeStarConnectionsSourceAction({
+      actionName: "Github_Source",
+      owner: "long2205",
+      branch: config.githubBranch,
+      repo: "ecs-example-api-repo",
+      output: sourceOutputApi,
+      connectionArn: commonConstants.codestarConnectionARN
+    });
+    //Build
+    const buildOutputApi = new codepipeline.Artifact();
+    const buildProjectApi = new codebuild.Project(this, "ApiBuildProject", {
+      projectName: `api-build-${deployEnv}`,
+      role: codebuildRole,
+      buildSpec: codebuild.BuildSpec.fromObject({
+        version: "0.2",
+        phases: {
+          pre_build: {
+            commands: [
+              "echo Logging in to Amazon ECR...",
+              "aws --version",
+              "$(aws ecr get-login --no-include-email --region $AWS_REGION)",
+              "COMMIT_ID=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -b -8)"
+            ]
+          },
+          build: {
+            commands: [
+              "echo Build started on `date`",
+              // Front end build might need to supply api URL beforehand 
+              // "docker build --build-arg react_app_url=" + react_app_url + " --build-arg react_google_id=" +react_google_id + " -t " + ecrDashboardRepo.repositoryUri + ":latest ."
+              "docker build -t " + apiECRRepo.repositoryUri + ":$COMMIT_ID .",
+              "docker image tag " + apiECRRepo.repositoryUri + ":$COMMIT_ID " + apiECRRepo.repositoryUri + ":latest"
+            ]
+          },
+          post_build: {
+            commands: [
+              "echo Build completed on `date`",
+              "echo Pushing the Docker image...",
+              "docker push " + apiECRRepo.repositoryUri + ":$COMMIT_ID",
+              "docker push " + apiECRRepo.repositoryUri + ":latest",
+              // In case we have taskdef file in source code: at deploy/task-definition.${deployEnv}.json
+              // `NEW_TASK_INFO=$(aws ecs register-task-definition --cli-input-json file://./deploy/task-definition.${deployEnv}.json ) `,
+              // "NEW_REVISION=$(echo $NEW_TASK_INFO | jq '.taskDefinition.revision') ",
+              // "aws ecs describe-task-definition --task-definition " + taskDefApi.family + ":$NEW_REVISION | jq '.taskDefinition' > taskdef.json",
+              "aws ecs describe-task-definition --task-definition " + taskDefApi.taskDefinitionArn + " | jq '.taskDefinition' > taskdef.json",
+              `printf '{"ImageURI":"${apiECRRepo.repositoryUri}:$COMMIT_ID"}' > imageDetail.json`
+
+            ],
+          }
+        },
+        artifacts: {
+          files: [
+            "appspec.yaml", 
+            "taskdef.json",
+            "imageDetail.json"
+          ]
+        }
+      }),
+      environment: {
+        buildImage: codebuild.LinuxBuildImage.AMAZON_LINUX_2_4,
+        privileged: true,
+      },
+    });
+
+    //Deploy
+    const ecsDeployApiGroup = new codedeploy.EcsDeploymentGroup(this, 'apiBlueGreenDG', {
+      service: apiService,
+      blueGreenDeploymentConfig: {
+        blueTargetGroup: apiBlueTg,
+        greenTargetGroup: apiGreenTg,
+        listener: httpsListener,
+      },
+      deploymentConfig: codedeploy.EcsDeploymentConfig.ALL_AT_ONCE,
+    });
+
+    //Pipeline
+    const pipelineApi = new codepipeline.Pipeline(this, "ApiPipeline", {
+      pipelineName: `api-pipeline-${deployEnv}`,
+      stages: [
+        {
+          stageName: "Source",
+          actions: [sourceActionApi],
+        },
+        {
+          stageName: "Build",
+          actions: [
+            new codepipeline_actions.CodeBuildAction({
+              actionName: "Build Docker Api Image",
+              project: buildProjectApi,
+              input: sourceOutputApi,
+              outputs: [buildOutputApi]
+            }),
+          ],
+        },
+        {
+          stageName: "Deploy",
+          actions: [
+            new codepipeline_actions.CodeDeployEcsDeployAction({
+              actionName: "BlueGreen ECSDeploy",
+              deploymentGroup: ecsDeployApiGroup,
+              appSpecTemplateInput: buildOutputApi,
+              taskDefinitionTemplateInput: buildOutputApi
+            }),
+          ],
+        },
+      ],
+      crossAccountKeys: false
+    });
+    pipelineApi.artifactBucket.applyRemovalPolicy(RemovalPolicy.DESTROY);
 
 
     /**Lambda function */
