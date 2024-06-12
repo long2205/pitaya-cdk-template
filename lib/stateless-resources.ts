@@ -44,7 +44,9 @@ export class StatelessResourceStack extends Stack {
     /**
      * Log bucket (in early stage of development, maybe it's best to set DESTROY RemovalPolicy)
      */
-    const loggingBucket = s3.Bucket.fromBucketName(this, "loggingBucket", `${commonConstants.project}-logging-bucket`);
+    const loggingBucket = new s3.Bucket(this, "loggingBucket", {
+      bucketName: `${commonConstants.project}-logging-bucket`}
+    );
     loggingBucket.applyRemovalPolicy(RemovalPolicy.DESTROY);
 
     /**
