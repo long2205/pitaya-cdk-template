@@ -34,7 +34,8 @@ const baseNetworkStack = new BaseNetworkStack(app, 'BaseNetwork', {
   stackName: `${deployEnv}-BaseNetwork`,
   env: env,
   deployEnv: deployEnv,
-  config
+  config,
+  terminationProtection: deployEnv == "prod" ? true : false,
 });
 
 /**
@@ -48,6 +49,7 @@ const statefulResourceStack = new StatefulResourceStack(app, 'StatefulResource',
   env: env,
   deployEnv: deployEnv,
   vpc: baseNetworkStack.vpc, //reference resource from difference stack can make stack interlock, so be careful!
+  terminationProtection: deployEnv == "prod" ? true : false,
 });
 statefulResourceStack.addDependency(baseNetworkStack);
 
@@ -67,6 +69,7 @@ const statelessResourceStack = new StatelessResourceStack(app, 'StatelessResourc
   deployEnv: deployEnv,
   vpc: baseNetworkStack.vpc,
   hostZone: baseNetworkStack.hostZone,
-  config: config
+  config: config,
+  terminationProtection: deployEnv == "prod" ? true : false,
 });
 statelessResourceStack.addDependency(baseNetworkStack);
