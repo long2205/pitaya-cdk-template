@@ -59,7 +59,7 @@ export class StatefulResourceStack extends Stack {
       port: databasePort,
       parameterGroup: parameterGroup,
       multiAz: deployEnv == "prod" ? true : false,
-      performanceInsightRetention: rds.PerformanceInsightRetention.DEFAULT, //You may need to comment this for MySQL instance that smaller than t3.medium
+      enablePerformanceInsights: deployEnv == "prod" ? true : false,
     });
 
   }

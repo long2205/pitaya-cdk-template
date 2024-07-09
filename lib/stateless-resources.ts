@@ -8,6 +8,7 @@ import {
   Stack,
   StackProps,
   RemovalPolicy,
+  Duration,
   aws_ec2 as ec2,
   aws_lambda as lambda,
   aws_s3 as s3,
@@ -23,6 +24,8 @@ import {
   aws_codepipeline_actions as codepipeline_actions,
   aws_codebuild as codebuild,
   aws_codedeploy as codedeploy,
+  aws_cloudfront as cloudfront,
+  aws_cloudfront_origins as cloudfront_origins,
 } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { StackConfig } from './parameters/env-config';
@@ -50,13 +53,18 @@ export class StatelessResourceStack extends Stack {
     loggingBucket.applyRemovalPolicy(RemovalPolicy.DESTROY);
 
     /**
-     * Certs
+     * Certs 
+     * There is no real good way to get certificate for Cloudfront. See more -> https://github.com/aws/aws-cdk/discussions/23931
+     * So, we gonna create it after BaseNetwork stack creation.
+     * Then change cloudfront cert value in .env file
      */
-    const certificate = new certificatemanager.Certificate(this, `${deployEnv}-${commonConstants.project}-cert`, {
+    const lbCert = new certificatemanager.Certificate(this, `${deployEnv}-${commonConstants.project}-cert`, {
       domainName: config.domainName,
       subjectAlternativeNames: [`*.${config.domainName}`],
       validation: certificatemanager.CertificateValidation.fromDns(hostZone),
     });
+
+    const cloudfrontCert = certificatemanager.Certificate.fromCertificateArn(this, `cloudfront-cert-${deployEnv}`, config.cloudfrontCertARN);
 
     /**
      * Load balancer
@@ -88,7 +96,7 @@ export class StatelessResourceStack extends Stack {
     const httpsListener = loadBalancer.addListener("listenerHttps", {
       port: 443,
       protocol: lbv2.ApplicationProtocol.HTTPS,
-      certificates: [certificate],
+      certificates: [lbCert],
       defaultAction: lbv2.ListenerAction.fixedResponse(404, {
         contentType: "text/html",
         messageBody: "お指定URLをご確認ください！"
@@ -100,8 +108,8 @@ export class StatelessResourceStack extends Stack {
      * Compute Resource (ECS)
      */
     //Image Repo
-    const apiECRRepo = new ecr.Repository(this, `${deployEnv}-Api-ecrRepo`, {
-      repositoryName: `Api-${deployEnv}`,
+    const apiECRRepo = new ecr.Repository(this, `${deployEnv}-api-ecrRepo`, {
+      repositoryName: `api-${deployEnv}`,
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
@@ -182,10 +190,43 @@ export class StatelessResourceStack extends Stack {
       },
     });
 
+    /**
+     * Cloudfront Distributions
+     */
+    //Backend Distribution
+    const backendOriginResponsePolicy = new cloudfront.ResponseHeadersPolicy(this, `cloudfront-backend-response-policy-${deployEnv}`, {
+      responseHeadersPolicyName: `cloudfront-backend-response-policy-${deployEnv}`,
+      corsBehavior: {
+        accessControlAllowCredentials: false,
+        accessControlAllowHeaders: ['*'],
+        accessControlAllowMethods: ['GET', 'POST'],
+        accessControlAllowOrigins: [config.domainName],
+        // accessControlExposeHeaders: [],
+        accessControlMaxAge: Duration.seconds(600),
+        originOverride: true,
+      }
+    });
+    
+    const backendCloudfront = new cloudfront.Distribution(this, `backend-cloudfront-${deployEnv}`, {
+      defaultRootObject: 'index.html',
+      defaultBehavior: {
+        origin: new cloudfront_origins.LoadBalancerV2Origin(loadBalancer),
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_AND_CLOUDFRONT_2022,
+        responseHeadersPolicy: backendOriginResponsePolicy,
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      },
+      enableLogging: true,
+      logBucket: loggingBucket,
+      logFilePrefix: `cloudfront/${deployEnv}/`,
+      certificate: cloudfrontCert,
+      domainNames: [`api.${config.domainName}`],
+      priceClass: cloudfront.PriceClass.PRICE_CLASS_200 //include Japan but not all
+    });
+
     new route53.ARecord(this, `api-record-${deployEnv}`, {
       zone: hostZone,
-      target: route53.RecordTarget.fromAlias(new route53_targets.LoadBalancerTarget(loadBalancer)),
-      recordName: `api.${hostZone.zoneName}`,
+      target: route53.RecordTarget.fromAlias(new route53_targets.CloudFrontTarget(backendCloudfront)),
+      recordName: `api.${config.domainName}`,
     });
 
     /**

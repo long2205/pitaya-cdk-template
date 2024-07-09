@@ -12,6 +12,6 @@ export const commonConstants = {
 }
 
 export const env =  {
-    account: '077272092711', 
+    account: '', 
     region: 'ap-northeast-1' 
 }
