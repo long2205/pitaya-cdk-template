@@ -43,7 +43,7 @@ export class StatefulResourceStack extends Stack {
 
     const database = new rds.DatabaseInstance(this, `${deployEnv}-${commonConstants.project}-database`, {
       instanceIdentifier: `${commonConstants.project}-database-${deployEnv}`,
-      databaseName: ssm.StringParameter.fromStringParameterAttributes(this, "postGre-database", { parameterName: `/${deployEnv}/db_database` }).stringValue,
+      databaseName: ssm.StringParameter.fromStringParameterAttributes(this, `database-${deployEnv}`, { parameterName: `/${deployEnv}/db_database` }).stringValue,
       engine: engine,
       vpc: vpc,
       vpcSubnets: {
@@ -60,6 +60,16 @@ export class StatefulResourceStack extends Stack {
       parameterGroup: parameterGroup,
       multiAz: deployEnv == "prod" ? true : false,
       enablePerformanceInsights: deployEnv == "prod" ? true : false,
+    });
+    
+    new ssm.StringParameter(this, "database-host", { 
+      parameterName: `/${deployEnv}/db_host`,
+      stringValue: database.dbInstanceEndpointAddress
+    });
+    
+    new ssm.StringParameter(this, "database-port", { 
+      parameterName: `/${deployEnv}/db_port`,
+      stringValue: database.dbInstanceEndpointPort
     });
 
   }

@@ -55,7 +55,7 @@ export class StatelessResourceStack extends Stack {
     /**
      * Certs 
      * There is no real good way to get certificate for Cloudfront. See more -> https://github.com/aws/aws-cdk/discussions/23931
-     * So, we gonna create it after BaseNetwork stack creation.
+     * So, we gonna create it with a deprecated function.
      * Then change cloudfront cert value in .env file
      */
     const lbCert = new certificatemanager.Certificate(this, `${deployEnv}-${commonConstants.project}-cert`, {
@@ -64,8 +64,15 @@ export class StatelessResourceStack extends Stack {
       validation: certificatemanager.CertificateValidation.fromDns(hostZone),
     });
 
-    const cloudfrontCert = certificatemanager.Certificate.fromCertificateArn(this, `cloudfront-cert-${deployEnv}`, config.cloudfrontCertARN);
-
+    const cloudfrontCert = new certificatemanager.DnsValidatedCertificate(this, `${deployEnv}-${commonConstants.project}-cloudfront-cert`, {
+      domainName: config.domainName,
+      subjectAlternativeNames: [`api.${config.domainName}`],
+      hostedZone: hostZone,
+      // the properties below are set for validation in us-east-1
+      region: 'us-east-1',
+      validation: certificatemanager.CertificateValidation.fromDns(hostZone),
+    });
+    
     /**
      * Load balancer
      */
