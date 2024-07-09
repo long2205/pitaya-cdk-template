@@ -45,7 +45,7 @@ pitaya-cdk-template
 ├── assets
 │   └── lambda-code.py #example lambda function's code
 ├── bin
-│   └── pitaya-cdk-template.ts #stacks will be loaded here
+│   └── pitaya-cdk-template.ts # entry point, stacks will be loaded here
 ├── lib #stacks' definition folder
 │   ├── parameters 
 │   │   ├── constants.ts #constants through out project
@@ -59,10 +59,14 @@ pitaya-cdk-template
 ```
 
 ## Commands
+You need to specify which environment to deploy with context **deployEnv** and supply it on every cdk command. <br> 
+
+`-c deployEnv=dev`
+
 ### Git clone and bootstrap cdk to your AWS account
 ```sh
 git clone git@github.com:long2205/pitaya-cdk-template.git
-cdk bootstrap --profile 𝘺𝘰𝘶𝘳-𝘱𝘳𝘰𝘧𝘪𝘭𝘦-𝘯𝘢𝘮𝘦
+cdk bootstrap -c deployEnv=dev --profile 𝘺𝘰𝘶𝘳-𝘱𝘳𝘰𝘧𝘪𝘭𝘦-𝘯𝘢𝘮𝘦
 ```
 
 ### Deploy stacks
@@ -70,9 +74,7 @@ Stacks will be deploy be upper-most order.
 
 Which means, BaseNetwork will be deploy first, then following with stateless, etc..
 
-You need to specify which environment to deploy with context **deployEnv**.
-
-For example with development environment:
+Deploy commands with development environment:
 ```sh
 # Deploy Base Network
 cdk deploy -c deployEnv=dev --profile 𝘺𝘰𝘶𝘳-𝘱𝘳𝘰𝘧𝘪𝘭𝘦-𝘯𝘢𝘮𝘦 BaseNetwork
@@ -85,11 +87,13 @@ cdk deploy -c deployEnv=dev --profile 𝘺𝘰𝘶𝘳-𝘱𝘳𝘰𝘧𝘪𝘭�
 ### Delete stacks
 Sometimes, you need to re-create stack. Or your business is gone and you need to delete it. 
 
-Delete stack will be delete by lower-most order.
+Deleting stacks should be delete by later-most order.
 
-Which means the lowest stack will be delete first, then the upmost BaseNetwork stack will be delete.
-
+Which means the latest stack should be delete first, then the upmost BaseNetwork stack will be delete.
 
 ```sh
 cdk destroy -c deployEnv=dev --profile 𝘺𝘰𝘶𝘳-𝘱𝘳𝘰𝘧𝘪𝘭𝘦-𝘯𝘢𝘮𝘦 StatelessResource
+
+cdk deploy -c deployEnv=dev --profile 𝘺𝘰𝘶𝘳-𝘱𝘳𝘰𝘧𝘪𝘭𝘦-𝘯𝘢𝘮𝘦 BaseNetwork
+# If you only run BaseNetwork delete command, all stacks will be delete, not just BaseNetwork stack
 ```
