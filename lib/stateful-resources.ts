@@ -38,10 +38,10 @@ export class StatefulResourceStack extends Stack {
 
     const parameterGroup = new rds.ParameterGroup(this, `${deployEnv}-parameter-group`, {
       engine: engine,
-      description: `${deployEnv} postGre database parameter group`
+      description: `${deployEnv} database parameter group`
     })
 
-    const postGre = new rds.DatabaseInstance(this, `${deployEnv}-${commonConstants.project}-database`, {
+    const database = new rds.DatabaseInstance(this, `${deployEnv}-${commonConstants.project}-database`, {
       instanceIdentifier: `${commonConstants.project}-database-${deployEnv}`,
       databaseName: ssm.StringParameter.fromStringParameterAttributes(this, "postGre-database", { parameterName: `/${deployEnv}/db_database` }).stringValue,
       engine: engine,
