@@ -56,7 +56,6 @@ export class StatelessResourceStack extends Stack {
      * Certs 
      * There is no real good way to get certificate for Cloudfront. See more -> https://github.com/aws/aws-cdk/discussions/23931
      * So, we gonna create it with a deprecated function.
-     * Then change cloudfront cert value in .env file
      */
     const lbCert = new certificatemanager.Certificate(this, `${deployEnv}-${commonConstants.project}-cert`, {
       domainName: config.domainName,
@@ -342,7 +341,7 @@ export class StatelessResourceStack extends Stack {
           stageName: "Build",
           actions: [
             new codepipeline_actions.CodeBuildAction({
-              actionName: "Build Docker Api Image",
+              actionName: "Build_Docker_Api_Image",
               project: buildProjectApi,
               input: sourceOutputApi,
               outputs: [buildOutputApi]
@@ -353,7 +352,7 @@ export class StatelessResourceStack extends Stack {
           stageName: "Deploy",
           actions: [
             new codepipeline_actions.CodeDeployEcsDeployAction({
-              actionName: "BlueGreen ECSDeploy",
+              actionName: "BlueGreen_ECSDeploy",
               deploymentGroup: ecsDeployApiGroup,
               appSpecTemplateInput: buildOutputApi,
               taskDefinitionTemplateInput: buildOutputApi
@@ -367,14 +366,18 @@ export class StatelessResourceStack extends Stack {
 
 
     /**Lambda function */
-    const exampleLambda = new lambda.Function(this, `${deployEnv}-${commonConstants.project}-exampleLambda`, {
-      functionName: `example-lambda-${deployEnv}`,
+    const invalidationLambda = new lambda.Function(this, `${deployEnv}-${commonConstants.project}-invalidate-lambda`, {
+      functionName: `cloudfront-invalidation-${deployEnv}`,
       code: lambda.Code.fromAsset(path.join(__dirname, "../assets")),
       runtime: lambda.Runtime.PYTHON_3_12,
-      handler: `example-lambda-${deployEnv}.lambda_handler`,
+      handler: `invalidation.lambda_handler`,
       environment: {
         "env": deployEnv
       },
     });
+    invalidationLambda.addToRolePolicy(new iam.PolicyStatement({
+      resources: ["*"],
+      actions: ["cloudfront:CreateInvalidation"],
+    }));
   }
 }

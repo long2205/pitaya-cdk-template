@@ -7,6 +7,8 @@ export interface StackConfig {
     githubBranch: string,
     cidrBlock: string,
     cloudfrontCertARN: string,
+    account: string,
+    region: string,
 }
 
 //Get parameter from .env file, if value not exist, get default's value
@@ -19,5 +21,7 @@ export const resolveConfig = (deployEnv: string): StackConfig => {
         githubBranch: process.env.BRANCH || 'develop',
         cidrBlock: process.env.CIDR_BLOCK || '10.1.0.0/16',
         cloudfrontCertARN: process.env.CLOUDFRONT_CERT || '',
+        account: process.env.ACCOUNT_ID || '', 
+        region: process.env.REGION || 'ap-northeast-1',
     }
 };

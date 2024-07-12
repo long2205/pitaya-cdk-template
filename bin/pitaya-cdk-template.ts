@@ -4,7 +4,6 @@ import { App } from 'aws-cdk-lib';
 import { BaseNetworkStack } from '../lib/base-network';
 import { StatefulResourceStack } from '../lib/stateful-resources';
 import { StatelessResourceStack } from '../lib/stateless-resources';
-import { env } from '../lib/parameters/constants';
 import { resolveConfig } from '../lib/parameters/env-config';
 
 const app = new App();
@@ -18,10 +17,11 @@ if (deployEnv !== "dev" && deployEnv !== "stg" && deployEnv !== "prod")
 // Get config from .env.${deployEnv} files
 const config = resolveConfig(deployEnv);
 // Some parameter might need user to define, in that case uncomment below code
-// if (!config.domainName) {
-//   throw new Error(`Missing required DOMAIN_NAME in .env file, please include it in .env.${deployEnv} file.` );
-// }
-
+if (!config.account) {
+  throw new Error(`You need to set ACCOUNT_ID, please include it in .env.${deployEnv} file.` );
+} else if (!config.domainName) {
+  throw new Error(`Missing required DOMAIN_NAME in .env file, please include it in .env.${deployEnv} file.` );
+}
 
 /**
  * First, the base network stack
@@ -32,7 +32,7 @@ const config = resolveConfig(deployEnv);
  *  */
 const baseNetworkStack = new BaseNetworkStack(app, 'BaseNetwork', {
   stackName: `${deployEnv}-BaseNetwork`,
-  env: env,
+  env: { account: config.account, region: config.region },
   deployEnv: deployEnv,
   config,
   terminationProtection: deployEnv == "prod" ? true : false,
@@ -46,7 +46,7 @@ const baseNetworkStack = new BaseNetworkStack(app, 'BaseNetwork', {
  *  */
 const statefulResourceStack = new StatefulResourceStack(app, 'StatefulResource', {
   stackName: `${deployEnv}-StatefulResource`,
-  env: env,
+  env: { account: config.account, region: config.region },
   deployEnv: deployEnv,
   vpc: baseNetworkStack.vpc, //reference resource from difference stack can make stack interlock, so be careful!
   terminationProtection: deployEnv == "prod" ? true : false,
@@ -65,7 +65,7 @@ statefulResourceStack.addDependency(baseNetworkStack);
  *  */
 const statelessResourceStack = new StatelessResourceStack(app, 'StatelessResource', {
   stackName: `${deployEnv}-StatelessResource`,
-  env: env,
+  env: { account: config.account, region: config.region },
   deployEnv: deployEnv,
   vpc: baseNetworkStack.vpc,
   hostZone: baseNetworkStack.hostZone,

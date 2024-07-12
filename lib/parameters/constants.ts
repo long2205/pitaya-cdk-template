@@ -10,8 +10,3 @@ export const commonConstants = {
     codestarConnectionARN: "",
     organizationSharedParameterARN: ""
 }
-
-export const env =  {
-    account: '', 
-    region: 'ap-northeast-1' 
-}

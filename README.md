@@ -23,7 +23,7 @@ Of course a PC (I'm using MacOS, so installation guide gonna be for MacOS)
     ```sh
     npm -g install typescript    
     ```
-4. AWS Account (I will use AWS SSO Account with --profile flag)
+4. AWS Credential (I will use AWS SSO Account with --profile flag)
 
 ## Stacks structure
 The template include 3 major stacks:
@@ -37,6 +37,9 @@ Stateful and Stateless stacks depended on BaseNetwork stack.<bR>
 BaseNetwork stack will be created if you didn't initiate it first.
 
 You can extend to more stacks. But the less stacks the better.
+
+**⚠️⚠️⚠️Please also keep in mind that this stack will be deploy in Tokyo Region as default⚠️⚠️⚠️**<br>
+Set different region in .env file if needed to
 
 ![stacks](/stacks.png)
 ## Files structure and its meaning
