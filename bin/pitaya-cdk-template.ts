@@ -4,8 +4,9 @@ import { App } from 'aws-cdk-lib';
 import { BaseNetworkStack } from '../lib/base-network';
 import { StatefulResourceStack } from '../lib/stateful-resources';
 import { StatelessResourceStack } from '../lib/stateless-resources';
-import { NonProductionStack } from '../lib/non-production';
+// import { NonProductionStack } from '../lib/non-production';
 import { resolveConfig } from '../lib/parameters/env-config';
+import { commonConstants } from '../lib/parameters/constants';
 
 const app = new App();
 
@@ -32,7 +33,7 @@ if (!config.account) {
  * Should be things that's free
  *  */
 const baseNetworkStack = new BaseNetworkStack(app, 'BaseNetwork', {
-  stackName: `${deployEnv}-BaseNetwork`,
+  stackName: `${deployEnv}-BaseNetwork-${commonConstants.project}`,
   env: { account: config.account, region: config.region },
   deployEnv: deployEnv,
   config,
@@ -46,7 +47,7 @@ const baseNetworkStack = new BaseNetworkStack(app, 'BaseNetwork', {
  * Delete protection should be on for production and off otherwise.
  *  */
 const statefulResourceStack = new StatefulResourceStack(app, 'StatefulResource', {
-  stackName: `${deployEnv}-StatefulResource`,
+  stackName: `${deployEnv}-StatefulResource-${commonConstants.project}`,
   env: { account: config.account, region: config.region },
   deployEnv: deployEnv,
   vpc: baseNetworkStack.vpc, //reference resource from difference stack can make stack interlock, so be careful!
@@ -65,7 +66,7 @@ statefulResourceStack.addDependency(baseNetworkStack);
  * If you have too many lambda functions, you can write in into a difference file.
  *  */
 const statelessResourceStack = new StatelessResourceStack(app, 'StatelessResource', {
-  stackName: `${deployEnv}-StatelessResource`,
+  stackName: `${deployEnv}-StatelessResource-${commonConstants.project}`,
   env: { account: config.account, region: config.region },
   deployEnv: deployEnv,
   vpc: baseNetworkStack.vpc,
@@ -84,6 +85,7 @@ statelessResourceStack.addDependency(baseNetworkStack);
  * This stack will be depended on stateless and stateful stacks so when you need to delete stacks, delete this first.
  */
 // const nonProductionStack = new NonProductionStack(app, 'NonProduction', {
+//   stackName: `${deployEnv}-NonProduction-${commonConstants.project}`,
 //   deployEnv: deployEnv,
 //   cluster: statelessResourceStack.cluster,
 //   backendService: statelessResourceStack.backendService,
