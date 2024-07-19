@@ -204,9 +204,9 @@ export class StatelessResourceStack extends Stack {
       responseHeadersPolicyName: `cloudfront-backend-response-policy-${deployEnv}`,
       corsBehavior: {
         accessControlAllowCredentials: false,
-        accessControlAllowHeaders: ['*'],
-        accessControlAllowMethods: ['GET', 'POST'],
-        accessControlAllowOrigins: [config.domainName],
+        accessControlAllowHeaders: ['Authorization', '*'], // * alone does NOT include Authorization header. Need to write it specifically
+        accessControlAllowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'HEAD'],
+        accessControlAllowOrigins: [`https://${config.domainName}`],
         // accessControlExposeHeaders: [],
         accessControlMaxAge: Duration.seconds(600),
         originOverride: true,
@@ -216,17 +216,34 @@ export class StatelessResourceStack extends Stack {
     const backendCloudfront = new cloudfront.Distribution(this, `backend-cloudfront-${deployEnv}`, {
       defaultRootObject: 'index.html',
       defaultBehavior: {
-        origin: new cloudfront_origins.LoadBalancerV2Origin(loadBalancer),
+        origin: new cloudfront_origins.LoadBalancerV2Origin(loadBalancer, {
+          // To make sure request is coming from our Distribution, we may add this custom header to Cloudfront and LoadBalancer
+          // customHeaders: {
+          //   "X-Custom-Header": commonConstants.project
+          // }
+        }),
         originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_AND_CLOUDFRONT_2022,
         responseHeadersPolicy: backendOriginResponsePolicy,
-        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
       },
       enableLogging: true,
       logBucket: loggingBucket,
       logFilePrefix: `cloudfront/${deployEnv}/`,
       certificate: cloudfrontCert,
       domainNames: [`api.${config.domainName}`],
-      priceClass: cloudfront.PriceClass.PRICE_CLASS_200 //include Japan but not all
+      priceClass: cloudfront.PriceClass.PRICE_CLASS_200, //include Japan but not all
+      // Custom for Frontend Distribution
+      // If frontend is a React SPA app hosting in S3, we will needed in including below code (to change behavior when user reload page)
+      // errorResponses: [
+      //   {
+      //     httpStatus: 404,
+      //     responseHttpStatus: 200,
+      //     responsePagePath: "/index.html",
+      //     ttl: Duration.seconds(0),
+      //   }
+      // ]
     });
 
     new route53.ARecord(this, `api-record-${deployEnv}`, {
