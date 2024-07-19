@@ -4,6 +4,7 @@ import { App } from 'aws-cdk-lib';
 import { BaseNetworkStack } from '../lib/base-network';
 import { StatefulResourceStack } from '../lib/stateful-resources';
 import { StatelessResourceStack } from '../lib/stateless-resources';
+import { NonProductionStack } from '../lib/non-production';
 import { resolveConfig } from '../lib/parameters/env-config';
 
 const app = new App();
@@ -73,3 +74,20 @@ const statelessResourceStack = new StatelessResourceStack(app, 'StatelessResourc
   terminationProtection: deployEnv == "prod" ? true : false,
 });
 statelessResourceStack.addDependency(baseNetworkStack);
+
+/**
+ * The NON Production stack
+ * Why would you want this ?
+ * You might not. I just don't want you to waste your resources in dev or stg environment, when you are not using it. 
+ * So this stack will turn off your computing resources and databases when you are out of the office.
+ * This stack code will be commented, because not everyone need it
+ * This stack will be depended on stateless and stateful stacks so when you need to delete stacks, delete this first.
+ */
+// const nonProductionStack = new NonProductionStack(app, 'NonProduction', {
+//   deployEnv: deployEnv,
+//   cluster: statelessResourceStack.cluster,
+//   backendService: statelessResourceStack.backendService,
+//   database: statefulResourceStack.database
+// });
+// nonProductionStack.addDependency(statelessResourceStack);
+// nonProductionStack.addDependency(statefulResourceStack);
