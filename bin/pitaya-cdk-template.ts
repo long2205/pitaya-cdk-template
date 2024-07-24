@@ -6,7 +6,7 @@ import { StatefulResourceStack } from '../lib/stateful-resources';
 import { StatelessResourceStack } from '../lib/stateless-resources';
 // import { NonProductionStack } from '../lib/non-production';
 import { resolveConfig } from '../lib/parameters/env-config';
-import { commonConstants } from '../lib/parameters/constants';
+import { commonConstants, env } from '../lib/parameters/constants';
 
 const app = new App();
 
@@ -19,9 +19,7 @@ if (deployEnv !== "dev" && deployEnv !== "stg" && deployEnv !== "prod")
 // Get config from .env.${deployEnv} files
 const config = resolveConfig(deployEnv);
 // Some parameter might need user to define, in that case uncomment below code
-if (!config.account) {
-  throw new Error(`You need to set ACCOUNT_ID, please include it in .env.${deployEnv} file.` );
-} else if (!config.domainName) {
+if (!config.domainName) {
   throw new Error(`Missing required DOMAIN_NAME in .env file, please include it in .env.${deployEnv} file.` );
 }
 
@@ -34,7 +32,7 @@ if (!config.account) {
  *  */
 const baseNetworkStack = new BaseNetworkStack(app, 'BaseNetwork', {
   stackName: `${deployEnv}-BaseNetwork-${commonConstants.project}`,
-  env: { account: config.account, region: config.region },
+  env: env,
   deployEnv: deployEnv,
   config,
   terminationProtection: deployEnv == "prod" ? true : false,
@@ -48,7 +46,7 @@ const baseNetworkStack = new BaseNetworkStack(app, 'BaseNetwork', {
  *  */
 const statefulResourceStack = new StatefulResourceStack(app, 'StatefulResource', {
   stackName: `${deployEnv}-StatefulResource-${commonConstants.project}`,
-  env: { account: config.account, region: config.region },
+  env: env,
   deployEnv: deployEnv,
   vpc: baseNetworkStack.vpc, //reference resource from difference stack can make stack interlock, so be careful!
   terminationProtection: deployEnv == "prod" ? true : false,
@@ -67,7 +65,7 @@ statefulResourceStack.addDependency(baseNetworkStack);
  *  */
 const statelessResourceStack = new StatelessResourceStack(app, 'StatelessResource', {
   stackName: `${deployEnv}-StatelessResource-${commonConstants.project}`,
-  env: { account: config.account, region: config.region },
+  env: env,
   deployEnv: deployEnv,
   vpc: baseNetworkStack.vpc,
   hostZone: baseNetworkStack.hostZone,
