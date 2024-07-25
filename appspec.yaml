@@ -1,0 +1,13 @@
+version: 0.0
+Resources:
+  - TargetService:
+      Type: AWS::ECS::Service
+      Properties:
+        TaskDefinition: <TASK_DEFINITION>
+        LoadBalancerInfo:
+          ContainerName: "apiContainer"
+          ContainerPort: 8888
+        CapacityProviderStrategy:
+          - CapacityProvider: "FARGATE"
+            Weight: 1
+            Base: 0

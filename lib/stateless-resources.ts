@@ -317,8 +317,9 @@ export class StatelessResourceStack extends Stack {
               // "NEW_REVISION=$(echo $NEW_TASK_INFO | jq '.taskDefinition.revision') ",
               // "aws ecs describe-task-definition --task-definition " + taskDefApi.family + ":$NEW_REVISION | jq '.taskDefinition' > taskdef.json",
               "aws ecs describe-task-definition --task-definition " + taskDefApi.taskDefinitionArn + " | jq '.taskDefinition' > taskdef.json",
-              `printf '{"ImageURI":"${apiECRRepo.repositoryUri}:$COMMIT_ID"}' > imageDetail.json`
-
+              `printf '{"ImageURI":"${apiECRRepo.repositoryUri}:$COMMIT_ID"}' > imageDetail.json`,
+              //you need an appspec file in your code, and it has to declare CapacityProvider. Check appspec.yaml in root folder for reference
+              deployEnv != "prod" ? "sed -i 's/FARGATE/FARGATE_SPOT/g' appspec.yaml": "",
             ],
           }
         },
