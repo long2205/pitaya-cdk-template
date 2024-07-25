@@ -128,7 +128,7 @@ export class StatelessResourceStack extends Stack {
 
     //Task Definition
     const taskDefApi = new ecs.FargateTaskDefinition(this, `${deployEnv}-Api-taskDef`);
-    const taskDefApiLogGroup = new logs.LogGroup(this, `${deployEnv}-Api-logGroup`, { logGroupName: `/${deployEnv}/ecs/Api` });
+    const taskDefApiLogGroup = new logs.LogGroup(this, `${deployEnv}-Api-logGroup`, { logGroupName: `/${deployEnv}/ecs/Api`, removalPolicy: RemovalPolicy.DESTROY });
     taskDefApi.addContainer("apiContainer", {
       image: ecs.ContainerImage.fromEcrRepository(apiECRRepo),
       portMappings: [
@@ -155,7 +155,7 @@ export class StatelessResourceStack extends Stack {
     const apiService = new ecs.FargateService(this, `${deployEnv}-Api-service`, {
       cluster: cluster,
       taskDefinition: taskDefApi,
-      serviceName: "Api-service",
+      serviceName: "api-service",
       deploymentController: {
         type: ecs.DeploymentControllerType.CODE_DEPLOY,
       },
