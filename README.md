@@ -7,6 +7,7 @@ Pitaya CDK template 😃 (in Typescript)
 - [Stacks structure](#stacks-structure)
 - [Files structure](#files-structure-and-its-meaning)
 - [Commands](#commands)
+- []
 ## Background
 I don't want to initiate a blank CDK project anymore. So this is what I created.
 
@@ -68,7 +69,13 @@ You need to specify which environment to deploy with context **deployEnv** and s
 
 ### Git clone and bootstrap cdk to your AWS account
 ```sh
+# Clone project
 git clone git@github.com:long2205/pitaya-cdk-template.git
+```
+
+Register account ID (and default region) in lib/constants.ts
+```sh
+# Bootstrap to your AWS
 cdk bootstrap -c deployEnv=dev --profile 𝘺𝘰𝘶𝘳-𝘱𝘳𝘰𝘧𝘪𝘭𝘦-𝘯𝘢𝘮𝘦
 ```
 
@@ -100,3 +107,9 @@ cdk destroy -c deployEnv=dev --profile 𝘺𝘰𝘶𝘳-𝘱𝘳𝘰𝘧𝘪𝘭
 cdk deploy -c deployEnv=dev --profile 𝘺𝘰𝘶𝘳-𝘱𝘳𝘰𝘧𝘪𝘭𝘦-𝘯𝘢𝘮𝘦 BaseNetwork
 # If you only run BaseNetwork delete command, all stacks will be delete, not just BaseNetwork stack
 ```
+
+## Future improvements
+- Wrapped all the stacks into a [CDK Pipeline](https://docs.aws.amazon.com/cdk/v2/guide/cdk_pipeline.html) 
+
+(This is the main reason I put parameters into .env file, but for now I still prefer control from local machine)
+- Introduce [cdk-nag](https://github.com/cdklabs/cdk-nag)
