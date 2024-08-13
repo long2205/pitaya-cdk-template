@@ -27,20 +27,25 @@ Of course a PC (I'm using MacOS, so installation guide gonna be for MacOS)
 4. AWS Credential (I will use AWS SSO Account with --profile flag)
 
 ## Stacks structure
-The template include 3 major stacks:
+The template include 3 major stacks, and will be (should be deploy in exact sequent):
 - Base Network
 - Stateful Resources
 - Stateless Resources
 
-Stacks will be deploy in the following order:
+Optional stack:
+- Non Production
 
-Stateful and Stateless stacks depended on BaseNetwork stack.<bR>
-BaseNetwork stack will be created if you didn't initiate it first.
+This is just an example stack. In this stack I created automation to shut down resources temporary outside business hour (not meant to use in production)
 
-You can extend to more stacks. But the less stacks the better.
+You can deploy Stateful or Stateless independently, but they will still be depended on BaseNetwork stack .<bR>
+In other word, BaseNetwork will be created no matter which stack you create first.
+
+You can extend to more subsequent stacks. But the less stacks the better.
 
 **⚠️⚠️⚠️Please also keep in mind that this stack will be deploy in Tokyo Region as default⚠️⚠️⚠️**<br>
-Set different region in .env file if needed to
+Set different region in .env file if needed to.
+
+A visualization of stack order and its dependency:
 
 ![stacks](/stacks.png)
 ## Files structure and its meaning
@@ -54,7 +59,8 @@ pitaya-cdk-template
 │   ├── parameters 
 │   │   ├── constants.ts #constants through out project
 │   │   └── env-config.ts #load parameter from .env.${deployEnv} files below
-│   ├── base-network.ts #Base Network Stack
+│   ├── base-network.ts #BaseNetwork Stack
+│   ├── non-production.ts #Non Production Stack
 │   ├── stateful-resources.ts #Stateful Stack
 │   └── stateless-resources.ts #Stateless Stack
 ├── .env.dev #parameters for dev environment
@@ -80,9 +86,7 @@ cdk bootstrap -c deployEnv=dev --profile 𝘺𝘰𝘶𝘳-𝘱𝘳𝘰𝘧𝘪�
 ```
 
 ### Deploy stacks
-Stacks will be deploy be upper-most order.
-
-Which means, BaseNetwork will be deploy first, then following with stateless, etc..
+Stacks will be deploy in sequential order.
 
 Deploy commands with development environment:
 ```sh
@@ -91,7 +95,7 @@ cdk deploy -c deployEnv=dev --profile 𝘺𝘰𝘶𝘳-𝘱𝘳𝘰𝘧𝘪𝘭�
 
 # Deploy Stateless resources
 cdk deploy -c deployEnv=dev --profile 𝘺𝘰𝘶𝘳-𝘱𝘳𝘰𝘧𝘪𝘭𝘦-𝘯𝘢𝘮𝘦 StatelessResource
-# Stateless stack is depended on BaseNetwork Stack. Hence when deploy, it also deploys BaseNetwork Stack. The same with Stateful Stack
+# Stateless stack is depended on BaseNetwork Stack. Hence when deploy, it also deploys/check changes BaseNetwork Stack. The same with Stateful Stack
 ```
 
 ### Delete stacks
