@@ -48,7 +48,7 @@ export class BaseNetworkStack extends Stack {
           cidrMask: 24,
         },
       ],
-      natGateways: 0,
+      natGateways: deployEnv == "prod" ? 2 : 1,
       // natGatewayProvider: ec2.NatProvider.gateway({ eipAllocationIds: [eipAddress.attrAllocationId] }),
     });
 

@@ -59,7 +59,11 @@ export class StatefulResourceStack extends Stack {
       port: databasePort,
       parameterGroup: parameterGroup,
       multiAz: deployEnv == "prod" ? true : false,
-      enablePerformanceInsights: deployEnv == "prod" ? true : false,
+      //Please check if instance type is support Performance Insight(For ex: mysql need t3.medium or higher type) https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PerfInsights.Overview.Engines.html
+      ...(deployEnv == "prod" && { 
+        performanceInsightRetention: rds.PerformanceInsightRetention.DEFAULT,
+        enablePerformanceInsights: true,
+      })
     });
     
     new ssm.StringParameter(this, "database-host", { 
