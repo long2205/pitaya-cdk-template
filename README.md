@@ -7,7 +7,8 @@ Pitaya CDK template 😃 (in Typescript)
 - [Stacks structure](#stacks-structure)
 - [Files structure](#files-structure-and-its-meaning)
 - [Commands](#commands)
-- []
+- [Future improvements](#future-improvements)
+
 ## Background
 I don't want to initiate a blank CDK project anymore. So this is what I created.
 

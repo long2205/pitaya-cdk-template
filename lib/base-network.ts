@@ -28,9 +28,7 @@ export class BaseNetworkStack extends Stack {
     super(scope, id, props);
     const { deployEnv, config } = props;
 
-    // const eipAddress = new ec2.CfnEIP(this, `${deployEnv}-EIpAddress`,{
-      
-    // });
+    const eipAddress = new ec2.CfnEIP(this, `${deployEnv}-eip-address`);
 
     this.vpc = new ec2.Vpc(this, `${deployEnv}-${commonConstants.project}-vpc`, {
       vpcName: `${deployEnv}-${commonConstants.project}-vpc`,
@@ -49,10 +47,10 @@ export class BaseNetworkStack extends Stack {
         },
       ],
       natGateways: deployEnv == "prod" ? 2 : 1,
-      // natGatewayProvider: ec2.NatProvider.gateway({ eipAllocationIds: [eipAddress.attrAllocationId] }),
+      natGatewayProvider: ec2.NatProvider.gateway({ eipAllocationIds: [eipAddress.attrAllocationId] }),
     });
 
-    this.hostZone = new route53.HostedZone(this, `${deployEnv}-${commonConstants.project}-hostZone`, {
+    this.hostZone = new route53.HostedZone(this, `${deployEnv}-${commonConstants.project}-host-zone`, {
       zoneName: config.domainName
     });
   }

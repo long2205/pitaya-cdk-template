@@ -47,7 +47,7 @@ export class StatelessResourceStack extends Stack {
     /**
      * Log bucket (in early stage of development, maybe it's best to set DESTROY RemovalPolicy)
      */
-    const loggingBucket = new s3.Bucket(this, "loggingBucket", {
+    const loggingBucket = new s3.Bucket(this, `logging-bucket-${deployEnv}`, {
       bucketName: `${commonConstants.project}-logging-bucket`,
       objectOwnership: s3.ObjectOwnership.OBJECT_WRITER
     });
@@ -72,11 +72,11 @@ export class StatelessResourceStack extends Stack {
       region: 'us-east-1',
       validation: certificatemanager.CertificateValidation.fromDns(hostZone),
     });
-    
+
     /**
      * Load balancer
      */
-    const lbSecurityGroup = new ec2.SecurityGroup(this, `${deployEnv}-${commonConstants.project}-LoadBalancerSecurityGroup`, {
+    const lbSecurityGroup = new ec2.SecurityGroup(this, `${deployEnv}-${commonConstants.project}-lb-security-group`, {
       vpc: vpc,
       allowAllOutbound: true,
     });
@@ -115,7 +115,7 @@ export class StatelessResourceStack extends Stack {
      * Compute Resource (ECS)
      */
     //Image Repo
-    const apiECRRepo = new ecr.Repository(this, `${deployEnv}-api-ecrRepo`, {
+    const apiECRRepo = new ecr.Repository(this, `${deployEnv}-api-ecr-repo`, {
       repositoryName: `api-${deployEnv}`,
       removalPolicy: RemovalPolicy.DESTROY,
     });
@@ -127,7 +127,7 @@ export class StatelessResourceStack extends Stack {
     });
 
     //Task Definition
-    const taskDefApi = new ecs.FargateTaskDefinition(this, `${deployEnv}-Api-taskDef`);
+    const taskDefApi = new ecs.FargateTaskDefinition(this, `${deployEnv}-api-task-def`);
     const taskDefApiLogGroup = new logs.LogGroup(this, `${deployEnv}-Api-logGroup`, { logGroupName: `/${deployEnv}/ecs/Api`, removalPolicy: RemovalPolicy.DESTROY });
     taskDefApi.addContainer("apiContainer", {
       image: ecs.ContainerImage.fromEcrRepository(apiECRRepo),
@@ -152,7 +152,7 @@ export class StatelessResourceStack extends Stack {
     }));
 
     //Service
-    const apiService = new ecs.FargateService(this, `${deployEnv}-Api-service`, {
+    const apiService = new ecs.FargateService(this, `${deployEnv}-api-service`, {
       cluster: cluster,
       taskDefinition: taskDefApi,
       serviceName: "api-service",
@@ -173,7 +173,7 @@ export class StatelessResourceStack extends Stack {
       targetUtilizationPercent: 70,
     });
 
-    const apiBlueTg = httpsListener.addTargets(`blueApiTarget${deployEnv}`, {
+    const apiBlueTg = httpsListener.addTargets(`blue-api-target-${deployEnv}`, {
       priority: 1,
       port: 8888,
       protocol: lbv2.ApplicationProtocol.HTTP,
@@ -187,7 +187,7 @@ export class StatelessResourceStack extends Stack {
       }
     });
 
-    const apiGreenTg = new lbv2.ApplicationTargetGroup(this, `greenApiTarget${deployEnv}`, {
+    const apiGreenTg = new lbv2.ApplicationTargetGroup(this, `green-api-target-${deployEnv}`, {
       vpc: vpc,
       port: 8888,
       protocol: lbv2.ApplicationProtocol.HTTP,
@@ -213,7 +213,7 @@ export class StatelessResourceStack extends Stack {
         originOverride: true,
       }
     });
-    
+
     const backendCloudfront = new cloudfront.Distribution(this, `backend-cloudfront-${deployEnv}`, {
       defaultRootObject: 'index.html',
       defaultBehavior: {
@@ -257,7 +257,7 @@ export class StatelessResourceStack extends Stack {
      * Deploy Pipeline
      */
     //Codebuild permission 
-    const codebuildRole = new iam.Role(this, "CodeBuildRole", {
+    const codebuildRole = new iam.Role(this, `codebuild-role-${deployEnv}`, {
       assumedBy: new iam.ServicePrincipal("codebuild.amazonaws.com"),
     });
 
@@ -274,7 +274,7 @@ export class StatelessResourceStack extends Stack {
     //Source
     const sourceOutputApi = new codepipeline.Artifact();
     const sourceActionApi = new codepipeline_actions.CodeStarConnectionsSourceAction({
-      actionName: "Github_Source",
+      actionName: "GithubSource",
       owner: "long2205",
       branch: config.githubBranch,
       repo: "ecs-example-api-repo",
@@ -283,7 +283,7 @@ export class StatelessResourceStack extends Stack {
     });
     //Build
     const buildOutputApi = new codepipeline.Artifact();
-    const buildProjectApi = new codebuild.Project(this, "ApiBuildProject", {
+    const buildProjectApi = new codebuild.Project(this, `api-build-project${deployEnv}`, {
       projectName: `api-build-${deployEnv}`,
       role: codebuildRole,
       buildSpec: codebuild.BuildSpec.fromObject({
@@ -319,7 +319,7 @@ export class StatelessResourceStack extends Stack {
               "aws ecs describe-task-definition --task-definition " + taskDefApi.taskDefinitionArn + " | jq '.taskDefinition' > taskdef.json",
               `printf '{"ImageURI":"${apiECRRepo.repositoryUri}:$COMMIT_ID"}' > imageDetail.json`,
               //you need an appspec file in your code, and it has to declare CapacityProvider. Check appspec.yaml in root folder for reference
-              deployEnv != "prod" ? "sed -i 's/FARGATE/FARGATE_SPOT/g' appspec.yaml": "",
+              deployEnv != "prod" ? "sed -i 's/FARGATE/FARGATE_SPOT/g' appspec.yaml" : "",
             ],
           }
         },
@@ -338,7 +338,7 @@ export class StatelessResourceStack extends Stack {
     });
 
     //Deploy
-    const ecsDeployApiGroup = new codedeploy.EcsDeploymentGroup(this, 'apiBlueGreenDG', {
+    const ecsDeployApiGroup = new codedeploy.EcsDeploymentGroup(this, `api-blue-green-deploy-group-${deployEnv}`, {
       service: apiService,
       blueGreenDeploymentConfig: {
         blueTargetGroup: apiBlueTg,
@@ -349,7 +349,7 @@ export class StatelessResourceStack extends Stack {
     });
 
     //Pipeline
-    const pipelineApi = new codepipeline.Pipeline(this, "ApiPipeline", {
+    const pipelineApi = new codepipeline.Pipeline(this, `api-pipeline-${deployEnv}`, {
       pipelineName: `api-pipeline-${deployEnv}`,
       stages: [
         {

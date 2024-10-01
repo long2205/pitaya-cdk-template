@@ -33,7 +33,7 @@ export class NonProductionStack extends Stack {
         /**
          * 1) ECS Fargate
          */
-        const lambdaRole = new iam.Role(this, 'LambdaRole', {
+        const lambdaRole = new iam.Role(this, `lambda-role-${deployEnv}`, {
             assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
             managedPolicies: [
                 iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
@@ -52,14 +52,14 @@ export class NonProductionStack extends Stack {
 
         lambdaRole.addToPolicy(
             new iam.PolicyStatement({
-                actions: ['rds:StartDBInstance','rds:StopDBInstance'],
+                actions: ['rds:StartDBInstance', 'rds:StopDBInstance'],
                 resources: [
                     database.instanceArn,
                 ],
             })
         );
 
-        const updateECSFunction = new lambda.Function(this, 'AutoOnOffECSDev', {
+        const updateECSFunction = new lambda.Function(this, `auto-on-off-ecs-${deployEnv}`, {
             functionName: `${commonConstants.project}-auto-on-off-ecs-${deployEnv}`,
             runtime: lambda.Runtime.PYTHON_3_9,
             code: lambda.Code.fromInline(`
@@ -81,7 +81,7 @@ def handler(event, context):
         });
 
         // Create CloudWatch Events rules to schedule the Lambda function with payload for Services
-        const stopRuleECSServices = new events.Rule(this, 'StopRuleServices', {
+        const stopRuleECSServices = new events.Rule(this, 'stop-rule-services', {
             schedule: events.Schedule.cron({ minute: '0', hour: '14', weekDay: '2-6' }), // 14:00 UTC = 23:00 JST (UTC+9)
             targets: [
                 new events_targets.LambdaFunction(updateECSFunction, {
@@ -95,7 +95,7 @@ def handler(event, context):
             enabled: true,
         });
 
-        const startRuleECSServices = new events.Rule(this, 'StartRuleServices', {
+        const startRuleECSServices = new events.Rule(this, 'start-rule-services', {
             schedule: events.Schedule.cron({ minute: '0', hour: '0', weekDay: '2-6' }), // 00:00 UTC = 9:00 JST (UTC+9)
             targets: [
                 new events_targets.LambdaFunction(updateECSFunction, {
@@ -113,7 +113,7 @@ def handler(event, context):
          * 2) Auto on off RDS database
          */
 
-        const updateRDSFunction = new lambda.Function(this, 'AutoOnOffRDSDev', {
+        const updateRDSFunction = new lambda.Function(this, `auto-on-off-rds-function-${deployEnv}`, {
             functionName: `${commonConstants.project}-auto-on-off-rds-${deployEnv}`,
             runtime: lambda.Runtime.PYTHON_3_9,
             code: lambda.Code.fromInline(`
@@ -135,7 +135,7 @@ def handler(event, context):
             role: lambdaRole
         });
 
-        const stopRuleRDSInstance = new events.Rule(this, 'StopRuleRDSInstance', {
+        const stopRuleRDSInstance = new events.Rule(this, 'stop-rule-rds', {
             schedule: events.Schedule.cron({ minute: '0', hour: '14', weekDay: '2-6' }), // Weekday 14:00 UTC = 23:00 JST (UTC+9)
             // schedule: events.Schedule.cron({ minute: '0', hour: '1', weekDay: '2' }), // Monday at 14:00 UTC = 23:00 JST (UTC+9)
             targets: [
@@ -150,7 +150,7 @@ def handler(event, context):
             enabled: true,
         });
 
-        const startRuleRDSInstance = new events.Rule(this, 'StartRuleRDSInstance', {
+        const startRuleRDSInstance = new events.Rule(this, 'start-rule-rds', {
             schedule: events.Schedule.cron({ minute: '0', hour: '0', weekDay: '2-6' }), // Weekday(2-6) 00:00 UTC = 09:00 JST (UTC+9)
             // schedule: events.Schedule.cron({ minute: '0', hour: '0', weekDay: '2' }), // Monday at 00:00 UTV = 09:00 JST (UTC+9)
             targets: [
